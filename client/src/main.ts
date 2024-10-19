@@ -52,46 +52,25 @@ function handleClicks() {
   state.mouse.clickX = -1;
   state.mouse.clickY = -1;
 
-  if (state.pieceSelector.dark.isOpen) {
-    const pickedPiece = getMenuRects('dark').piecePositions.find((piece) => piece.isMouseOver);
-    if (pickedPiece)
-      if (pickedPiece.piece === 'none') {
-        refundPiece({
-          color: 'dark',
-          rank: state.pieceSelector.dark.originRank,
-          file: state.pieceSelector.dark.originFile,
-        });
-      } else {
-        placePiece({
-          ...pickedPiece,
-          piece: pickedPiece.piece as Piece,
-          rank: state.pieceSelector.dark.originRank,
-          file: state.pieceSelector.dark.originFile,
-        });
-      }
-    state.pieceSelector.dark.isOpen = false;
-    return;
-  }
-
-  if (state.pieceSelector.light.isOpen) {
-    const pickedPiece = getMenuRects('light').piecePositions.find((piece) => piece.isMouseOver);
-    if (pickedPiece)
-      if (pickedPiece.piece === 'none') {
-        refundPiece({
-          color: 'light',
-          rank: state.pieceSelector.light.originRank,
-          file: state.pieceSelector.light.originFile,
-        });
-      } else {
-        placePiece({
-          ...pickedPiece,
-          piece: pickedPiece.piece as Piece,
-          rank: state.pieceSelector.light.originRank,
-          file: state.pieceSelector.light.originFile,
-        });
-      }
-    state.pieceSelector.light.isOpen = false;
-    return;
+  for (const color of ['dark', 'light'] as const) {
+    const rank = state.pieceSelector[color].originRank;
+    const file = state.pieceSelector[color].originFile;
+    if (state.pieceSelector[color].isOpen) {
+      const pickedPiece = getMenuRects(color).piecePositions.find((piece) => piece.isMouseOver);
+      if (pickedPiece)
+        if (pickedPiece.piece === 'none') {
+          refundPiece({ color, rank, file });
+        } else {
+          placePiece({
+            ...pickedPiece,
+            piece: pickedPiece.piece as Piece,
+            rank,
+            file,
+          });
+        }
+      state.pieceSelector[color].isOpen = false;
+      return;
+    }
   }
 
   const { tileSize } = getRect();
@@ -229,15 +208,18 @@ function drawPieceSelectorMenu(color: 'light' | 'dark') {
   const menu = state.pieceSelector[color];
   if (!menu.isOpen) return;
 
+  // draw menu bg
   const { x, y, width, height, miniTileSize, piecePositions } = getMenuRects(color);
   ctx.fillStyle = 'white';
   ctx.beginPath();
   ctx.roundRect(x, y, width, height, 10);
   ctx.fill();
 
+  // draw each piece icon
   for (const { piece, isMouseOver, x, y } of piecePositions) {
     const pieceImage = pieceSvg[color][piece];
 
+    // grayish bg if hovered
     if (isMouseOver) {
       canvas.style.cursor = 'pointer';
       ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
@@ -248,4 +230,28 @@ function drawPieceSelectorMenu(color: 'light' | 'dark') {
 
     ctx.drawImage(pieceImage, x, y, miniTileSize, miniTileSize);
   }
+
+  // draw the remaining budget
+  const budget = state.budget[color];
+  const text = new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(budget);
+  ctx.font = `${miniTileSize / 3}px sans-serif`;
+  ctx.textAlign = 'center';
+
+  // background rectangle
+  ctx.fillStyle = 'black';
+  ctx.beginPath();
+  ctx.roundRect(x, y + height + miniTileSize / 6, width, (miniTileSize * 4) / 7, 10);
+  ctx.fill();
+
+  // draw text
+  const green = '#4ade80';
+  const gold = '#fcd34d';
+  const red = '#ef4444';
+  ctx.fillStyle = budget === 0 ? gold : budget < 0 ? red : green;
+  ctx.fillText(text, x + miniTileSize / 2, y + height + (miniTileSize * 4) / 7);
 }
