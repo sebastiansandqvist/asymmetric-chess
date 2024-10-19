@@ -2,6 +2,10 @@ import { Status, Color, Piece } from './types';
 
 export const state = {
   status: 'configuring' as Status,
+  ready: {
+    dark: false,
+    light: false,
+  },
   mouse: {
     x: -1,
     y: -1,
@@ -26,14 +30,14 @@ export const state = {
   },
   board: [
     {
+      piece: 'king' as Piece,
       color: 'light' as Color,
-      piece: 'pawn' as Piece,
-      rank: 3,
+      rank: 7,
       file: 4,
     },
     {
-      color: 'dark' as Color,
       piece: 'king' as Piece,
+      color: 'dark' as Color,
       rank: 0,
       file: 4,
     },

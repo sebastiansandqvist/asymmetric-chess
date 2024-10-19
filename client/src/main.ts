@@ -6,6 +6,15 @@ import { Color, Piece } from './types';
 const canvas = document.querySelector('canvas')!;
 const ctx = canvas.getContext('2d')!;
 
+function formatMoney(n: number) {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(n);
+}
+
 function draw() {
   resizeCanvas();
   ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -16,6 +25,8 @@ function draw() {
   drawBoard();
   drawCircleInHoveredTile();
   drawPieces();
+  drawReadyButton('light');
+  drawReadyButton('dark');
   drawPieceSelectorMenu('light');
   drawPieceSelectorMenu('dark');
 
@@ -47,12 +58,13 @@ function handleClicks() {
   const x = state.mouse.clickX;
   const y = state.mouse.clickY;
   if (x === -1 || y === -1) return;
-  if (state.status !== 'configuring') return; // TODO: eventually, move pieces
+  if (state.status !== 'configuring') return;
 
   state.mouse.clickX = -1;
   state.mouse.clickY = -1;
 
   for (const color of ['dark', 'light'] as const) {
+    // handle picking pieces
     const rank = state.pieceSelector[color].originRank;
     const file = state.pieceSelector[color].originFile;
     if (state.pieceSelector[color].isOpen) {
@@ -69,6 +81,16 @@ function handleClicks() {
           });
         }
       state.pieceSelector[color].isOpen = false;
+      return;
+    }
+
+    // handle ready button
+    const ready = readyButtonRect(color);
+    if (ready.isMouseOver) {
+      state.ready[color] = true;
+      if (state.ready.light && state.ready.dark) {
+        state.status = 'playing';
+      }
       return;
     }
   }
@@ -157,18 +179,7 @@ function drawCircleInHoveredTile() {
   canvas.style.cursor = 'pointer';
 }
 
-function highlightHoveredTile() {
-  const { tileSize } = getRect();
-  const hoveredFile = Math.floor(state.mouse.x / tileSize);
-  const hoveredRank = Math.floor(state.mouse.y / tileSize);
-  resizeCanvas();
-  drawBoard();
-  drawPieces();
-  ctx.fillStyle = 'rgba(255, 255, 0, 0.5)'; // yellowish
-  ctx.fillRect(hoveredFile * tileSize, hoveredRank * tileSize, tileSize, tileSize);
-}
-
-function getMenuRects(color: 'light' | 'dark') {
+function getMenuRects(color: Color) {
   const { tileSize } = getRect();
   const menu = state.pieceSelector[color];
   const pieces = ['none', 'pawn', 'knight', 'bishop', 'rook', 'queen'] as (Piece | 'none')[];
@@ -204,7 +215,7 @@ function getMenuRects(color: 'light' | 'dark') {
   return { tileSize, miniTileSize, x, y, width, height, top, bottom, piecePositions, pieces };
 }
 
-function drawPieceSelectorMenu(color: 'light' | 'dark') {
+function drawPieceSelectorMenu(color: Color) {
   const menu = state.pieceSelector[color];
   if (!menu.isOpen) return;
 
@@ -222,23 +233,37 @@ function drawPieceSelectorMenu(color: 'light' | 'dark') {
     // grayish bg if hovered
     if (isMouseOver) {
       canvas.style.cursor = 'pointer';
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+      ctx.fillStyle = '#ddd';
       ctx.beginPath();
       ctx.roundRect(x, y, miniTileSize, miniTileSize, 10);
       ctx.fill();
     }
 
     ctx.drawImage(pieceImage, x, y, miniTileSize, miniTileSize);
+
+    // draw the piece price to the right of the piece image
+    if (piece !== 'none') {
+      const piecePrice = pieceValues[piece];
+      const textX = x + miniTileSize;
+      const textY = y + miniTileSize / 2;
+      const rectWidth = (miniTileSize * 3) / 4;
+
+      // draw background rectangle
+      ctx.fillStyle = isMouseOver ? '#ddd' : 'white';
+      ctx.beginPath();
+      ctx.roundRect(textX - 1, textY - miniTileSize / 4, rectWidth, miniTileSize / 2, [0, 5, 5, 0]);
+      ctx.fill();
+
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = 'green';
+      ctx.textAlign = 'left';
+      ctx.font = `${miniTileSize / 3}px sans-serif`;
+      ctx.fillText(formatMoney(piecePrice), textX + miniTileSize / 7, textY);
+    }
   }
 
   // draw the remaining budget
   const budget = state.budget[color];
-  const text = new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(budget);
   ctx.font = `${miniTileSize / 3}px sans-serif`;
   ctx.textAlign = 'center';
 
@@ -252,6 +277,50 @@ function drawPieceSelectorMenu(color: 'light' | 'dark') {
   const green = '#4ade80';
   const gold = '#fcd34d';
   const red = '#ef4444';
+  ctx.textBaseline = 'alphabetic';
   ctx.fillStyle = budget === 0 ? gold : budget < 0 ? red : green;
-  ctx.fillText(text, x + miniTileSize / 2, y + height + (miniTileSize * 4) / 7);
+  ctx.fillText(formatMoney(budget), x + miniTileSize / 2, y + height + (miniTileSize * 4) / 7);
+}
+
+function readyButtonRect(color: Color) {
+  const { tileSize, w } = getRect();
+  const rank = color === 'dark' ? 3 : 4;
+  const width = (tileSize * 3) / 2;
+  const height = (tileSize * 2) / 3;
+  const x = w / 2 - width / 2;
+  const y = rank * tileSize + height / 4;
+  const isMouseOver =
+    state.mouse.x >= x && state.mouse.x <= x + width && state.mouse.y >= y && state.mouse.y <= y + height;
+
+  return { tileSize, rank, width, height, x, y, isMouseOver };
+}
+
+function drawReadyButton(color: Color) {
+  if (state.status !== 'configuring') return;
+  const { tileSize, x, y, width, height, isMouseOver } = readyButtonRect(color);
+
+  const isReady = state.ready[color];
+
+  if (isReady) ctx.globalAlpha = 0.5;
+  ctx.fillStyle = color === 'dark' ? 'black' : 'white';
+  ctx.fillRect(x, y, width, height);
+  ctx.globalAlpha = 1;
+
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font = `${isReady ? 'italic ' : ''}${tileSize / 3}px sans-serif`;
+  ctx.fillStyle = color === 'dark' ? 'white' : 'black';
+  ctx.fillText(`ready${isReady ? '!' : ''}`, x + width / 2, y + height / 2);
+
+  const isMenuOpen = state.pieceSelector[color].isOpen;
+
+  if (isMouseOver && !isMenuOpen) {
+    if (state.budget[color] < 0) {
+      canvas.style.cursor = 'not-allowed';
+    } else if (state.ready[color]) {
+      canvas.style.cursor = 'default';
+    } else {
+      canvas.style.cursor = 'pointer';
+    }
+  }
 }
