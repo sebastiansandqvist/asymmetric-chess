@@ -1,3 +1,4 @@
+import remove from './assets/pieces/chess_remove.svg';
 import bishopDark from './assets/pieces/chess_b_dark.svg';
 import bishopLight from './assets/pieces/chess_b_light.svg';
 import kingDark from './assets/pieces/chess_k_dark.svg';
@@ -19,6 +20,7 @@ function toImage(svg: string) {
 
 export const pieceSvg = {
   dark: {
+    none: toImage(remove),
     bishop: toImage(bishopDark),
     king: toImage(kingDark),
     queen: toImage(queenDark),
@@ -27,6 +29,7 @@ export const pieceSvg = {
     pawn: toImage(pawnDark),
   },
   light: {
+    none: toImage(remove),
     bishop: toImage(bishopLight),
     king: toImage(kingLight),
     queen: toImage(queenLight),

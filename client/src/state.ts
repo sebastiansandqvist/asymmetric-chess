@@ -27,13 +27,13 @@ export const state = {
   board: [
     {
       color: 'light' as Color,
-      type: 'pawn' as Piece,
+      piece: 'pawn' as Piece,
       rank: 3,
       file: 4,
     },
     {
       color: 'dark' as Color,
-      type: 'king' as Piece,
+      piece: 'king' as Piece,
       rank: 0,
       file: 4,
     },

@@ -1,7 +1,7 @@
-import { tileColor } from './constants';
+import { pieceValues, tileColor } from './constants';
 import { pieceSvg } from './pieces';
 import { state } from './state';
-import { Piece } from './types';
+import { Color, Piece } from './types';
 
 const canvas = document.querySelector('canvas')!;
 const ctx = canvas.getContext('2d')!;
@@ -11,11 +11,9 @@ function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   canvas.style.cursor = 'default';
 
-  // TODO: should events go in a different loop?
   handleClicks();
 
   drawBoard();
-  // highlightHoveredTile();
   drawCircleInHoveredTile();
   drawPieces();
   drawPieceSelectorMenu('light');
@@ -25,6 +23,25 @@ function draw() {
 }
 
 draw();
+
+function placePiece({ piece, color, rank, file }: { piece: Piece; color: Color; rank: number; file: number }) {
+  const existingPieceIndex = state.board.findIndex((x) => x.rank === rank && x.file === file);
+  if (existingPieceIndex !== -1) {
+    const existingPiece = state.board[existingPieceIndex]!;
+    refundPiece(existingPiece);
+  }
+  state.board.push({ piece, color, file, rank });
+  state.budget[color] -= pieceValues[piece];
+}
+
+function refundPiece({ color, rank, file }: { color: Color; rank: number; file: number }) {
+  const existingPieceIndex = state.board.findIndex((x) => x.rank === rank && x.file === file);
+  if (existingPieceIndex !== -1) {
+    const existingPiece = state.board[existingPieceIndex]!;
+    state.board.splice(existingPieceIndex, 1);
+    state.budget[color] += pieceValues[existingPiece.piece];
+  }
+}
 
 function handleClicks() {
   const x = state.mouse.clickX;
@@ -36,11 +53,43 @@ function handleClicks() {
   state.mouse.clickY = -1;
 
   if (state.pieceSelector.dark.isOpen) {
+    const pickedPiece = getMenuRects('dark').piecePositions.find((piece) => piece.isMouseOver);
+    if (pickedPiece)
+      if (pickedPiece.piece === 'none') {
+        refundPiece({
+          color: 'dark',
+          rank: state.pieceSelector.dark.originRank,
+          file: state.pieceSelector.dark.originFile,
+        });
+      } else {
+        placePiece({
+          ...pickedPiece,
+          piece: pickedPiece.piece as Piece,
+          rank: state.pieceSelector.dark.originRank,
+          file: state.pieceSelector.dark.originFile,
+        });
+      }
     state.pieceSelector.dark.isOpen = false;
     return;
   }
 
   if (state.pieceSelector.light.isOpen) {
+    const pickedPiece = getMenuRects('light').piecePositions.find((piece) => piece.isMouseOver);
+    if (pickedPiece)
+      if (pickedPiece.piece === 'none') {
+        refundPiece({
+          color: 'light',
+          rank: state.pieceSelector.light.originRank,
+          file: state.pieceSelector.light.originFile,
+        });
+      } else {
+        placePiece({
+          ...pickedPiece,
+          piece: pickedPiece.piece as Piece,
+          rank: state.pieceSelector.light.originRank,
+          file: state.pieceSelector.light.originFile,
+        });
+      }
     state.pieceSelector.light.isOpen = false;
     return;
   }
@@ -92,14 +141,18 @@ function drawPieces() {
   for (const piece of state.board) {
     const x = piece.file * tileSize;
     const y = piece.rank * tileSize;
-    ctx.drawImage(pieceSvg[piece.color][piece.type], x, y, tileSize, tileSize);
+    ctx.drawImage(pieceSvg[piece.color][piece.piece], x, y, tileSize, tileSize);
   }
 }
 
 function drawCircleInHoveredTile() {
+  // don't draw hover circles if a piece selector is open
+  if (state.pieceSelector.dark.isOpen) return;
+  if (state.pieceSelector.light.isOpen) return;
+
   const { tileSize } = getRect();
 
-  const radius = 20;
+  const radius = tileSize / 4;
   const validRanks = [0, 1, 2, 5, 6, 7];
   const hoveredFile = Math.floor(state.mouse.x / tileSize);
   const hoveredRank = Math.floor(state.mouse.y / tileSize);
@@ -136,9 +189,14 @@ function highlightHoveredTile() {
   ctx.fillRect(hoveredFile * tileSize, hoveredRank * tileSize, tileSize, tileSize);
 }
 
-function getMenuRect(color: 'light' | 'dark', pieces: unknown[]) {
+function getMenuRects(color: 'light' | 'dark') {
   const { tileSize } = getRect();
   const menu = state.pieceSelector[color];
+  const pieces = ['none', 'pawn', 'knight', 'bishop', 'rook', 'queen'] as (Piece | 'none')[];
+  const hasKing = state.board.find((tile) => tile.piece === 'king' && tile.color === color);
+  if (!hasKing) pieces.push('king');
+  if (color === 'dark') pieces.reverse();
+
   const miniTileSize = tileSize / 2;
   const width = miniTileSize;
   const height = miniTileSize * pieces.length;
@@ -146,44 +204,48 @@ function getMenuRect(color: 'light' | 'dark', pieces: unknown[]) {
   const bottom = menu.originRank * tileSize + width / 2;
   const top = menu.originRank * tileSize - height + tileSize - miniTileSize / 2;
   const y = color === 'light' ? top : bottom;
-  return { tileSize, miniTileSize, x, y, width, height, top, bottom };
+
+  const piecePositions = pieces.map((piece, i) => {
+    const offsetY = i * miniTileSize;
+    const isMouseOver =
+      state.mouse.x >= x &&
+      state.mouse.x <= x + miniTileSize &&
+      state.mouse.y >= y + offsetY &&
+      state.mouse.y <= y + offsetY + miniTileSize;
+    return {
+      piece,
+      color,
+      isMouseOver,
+      offsetY,
+      x,
+      y: y + offsetY,
+    };
+  });
+
+  return { tileSize, miniTileSize, x, y, width, height, top, bottom, piecePositions, pieces };
 }
 
 function drawPieceSelectorMenu(color: 'light' | 'dark') {
   const menu = state.pieceSelector[color];
   if (!menu.isOpen) return;
 
-  const pieces = ['pawn', 'knight', 'bishop', 'rook', 'queen'] as Piece[];
-  const hasKing = state.board.find((tile) => tile.type === 'king' && tile.color === color);
-  if (!hasKing) {
-    pieces.push('king');
-  }
-
-  const { x, y, width, height, miniTileSize } = getMenuRect(color, pieces);
-  ctx.fillStyle = 'white'; // color === 'light' ? 'black' : 'white';
+  const { x, y, width, height, miniTileSize, piecePositions } = getMenuRects(color);
+  ctx.fillStyle = 'white';
   ctx.beginPath();
   ctx.roundRect(x, y, width, height, 10);
   ctx.fill();
 
-  let offsetY = 0;
-
-  for (const piece of pieces) {
+  for (const { piece, isMouseOver, x, y } of piecePositions) {
     const pieceImage = pieceSvg[color][piece];
-    const isMouseOver =
-      state.mouse.x >= x &&
-      state.mouse.x <= x + miniTileSize &&
-      state.mouse.y >= y + offsetY &&
-      state.mouse.y <= y + offsetY + miniTileSize;
 
     if (isMouseOver) {
       canvas.style.cursor = 'pointer';
       ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
       ctx.beginPath();
-      ctx.roundRect(x, y + offsetY, miniTileSize, miniTileSize, 10);
+      ctx.roundRect(x, y, miniTileSize, miniTileSize, 10);
       ctx.fill();
     }
 
-    ctx.drawImage(pieceImage, x, y + offsetY, miniTileSize, miniTileSize);
-    offsetY += miniTileSize;
+    ctx.drawImage(pieceImage, x, y, miniTileSize, miniTileSize);
   }
 }
