@@ -1,6 +1,7 @@
 import { tileColor } from './constants';
 import { pieceSvg } from './pieces';
 import { state } from './state';
+import { Piece } from './types';
 
 const canvas = document.querySelector('canvas')!;
 const ctx = canvas.getContext('2d')!;
@@ -8,6 +9,7 @@ const ctx = canvas.getContext('2d')!;
 function draw() {
   resizeCanvas();
   ctx.clearRect(0, 0, canvas.width, canvas.height);
+  canvas.style.cursor = 'default';
 
   // TODO: should events go in a different loop?
   handleClicks();
@@ -16,7 +18,8 @@ function draw() {
   // highlightHoveredTile();
   drawCircleInHoveredTile();
   drawPieces();
-  drawPieceSelectorMenus();
+  drawPieceSelectorMenu('light');
+  drawPieceSelectorMenu('dark');
 
   requestAnimationFrame(draw);
 }
@@ -32,13 +35,14 @@ function handleClicks() {
   state.mouse.clickX = -1;
   state.mouse.clickY = -1;
 
-  // TODO: handle if clicking in a menu
   if (state.pieceSelector.dark.isOpen) {
-    return (state.pieceSelector.dark.isOpen = false);
+    state.pieceSelector.dark.isOpen = false;
+    return;
   }
 
   if (state.pieceSelector.light.isOpen) {
-    return (state.pieceSelector.light.isOpen = false);
+    state.pieceSelector.light.isOpen = false;
+    return;
   }
 
   const { tileSize } = getRect();
@@ -101,7 +105,6 @@ function drawCircleInHoveredTile() {
   const hoveredRank = Math.floor(state.mouse.y / tileSize);
 
   if (!validRanks.includes(hoveredRank)) {
-    canvas.style.cursor = 'default';
     return;
   }
 
@@ -133,4 +136,54 @@ function highlightHoveredTile() {
   ctx.fillRect(hoveredFile * tileSize, hoveredRank * tileSize, tileSize, tileSize);
 }
 
-function drawPieceSelectorMenus() {}
+function getMenuRect(color: 'light' | 'dark', pieces: unknown[]) {
+  const { tileSize } = getRect();
+  const menu = state.pieceSelector[color];
+  const miniTileSize = tileSize / 2;
+  const width = miniTileSize;
+  const height = miniTileSize * pieces.length;
+  const x = menu.originFile * tileSize + width / 2;
+  const bottom = menu.originRank * tileSize + width / 2;
+  const top = menu.originRank * tileSize - height + tileSize - miniTileSize / 2;
+  const y = color === 'light' ? top : bottom;
+  return { tileSize, miniTileSize, x, y, width, height, top, bottom };
+}
+
+function drawPieceSelectorMenu(color: 'light' | 'dark') {
+  const menu = state.pieceSelector[color];
+  if (!menu.isOpen) return;
+
+  const pieces = ['pawn', 'knight', 'bishop', 'rook', 'queen'] as Piece[];
+  const hasKing = state.board.find((tile) => tile.type === 'king' && tile.color === color);
+  if (!hasKing) {
+    pieces.push('king');
+  }
+
+  const { x, y, width, height, miniTileSize } = getMenuRect(color, pieces);
+  ctx.fillStyle = 'white'; // color === 'light' ? 'black' : 'white';
+  ctx.beginPath();
+  ctx.roundRect(x, y, width, height, 10);
+  ctx.fill();
+
+  let offsetY = 0;
+
+  for (const piece of pieces) {
+    const pieceImage = pieceSvg[color][piece];
+    const isMouseOver =
+      state.mouse.x >= x &&
+      state.mouse.x <= x + miniTileSize &&
+      state.mouse.y >= y + offsetY &&
+      state.mouse.y <= y + offsetY + miniTileSize;
+
+    if (isMouseOver) {
+      canvas.style.cursor = 'pointer';
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+      ctx.beginPath();
+      ctx.roundRect(x, y + offsetY, miniTileSize, miniTileSize, 10);
+      ctx.fill();
+    }
+
+    ctx.drawImage(pieceImage, x, y + offsetY, miniTileSize, miniTileSize);
+    offsetY += miniTileSize;
+  }
+}

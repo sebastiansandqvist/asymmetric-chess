@@ -1,6 +1,4 @@
-type Color = 'dark' | 'light';
-type Piece = 'pawn' | 'knight' | 'king' | 'rook' | 'queen' | 'bishop';
-type Status = 'configuring' | 'playing';
+import { Status, Color, Piece } from './types';
 
 export const state = {
   status: 'configuring' as Status,
@@ -28,13 +26,13 @@ export const state = {
   },
   board: [
     {
-      color: 'dark' as Color,
+      color: 'light' as Color,
       type: 'pawn' as Piece,
       rank: 3,
       file: 4,
     },
     {
-      color: 'light' as Color,
+      color: 'dark' as Color,
       type: 'king' as Piece,
       rank: 0,
       file: 4,
