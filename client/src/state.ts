@@ -2,6 +2,8 @@ import { Status, Color, Piece } from './types';
 
 const canvas = document.querySelector('canvas')!;
 
+const initialBudget = parseInt(window.location.hash.slice(1), 10) || 39;
+
 export const state = {
   // cursor: { light: { x, y }, dark: { x, y } } // if we add gamepad input
   keysPressed: new Set<string>(),
@@ -19,8 +21,8 @@ export const state = {
     clickY: -1,
   },
   budget: {
-    dark: 39,
-    light: 39,
+    dark: initialBudget,
+    light: initialBudget,
   },
   pieceSelector: {
     dark: {

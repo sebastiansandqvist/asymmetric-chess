@@ -4,8 +4,10 @@ export const tileColor = {
 };
 
 export const colors = {
+  darkGreen: '#15803d',
   green: '#4ade80',
   gold: '#fcd34d',
+  darkGold: '#f59e0b',
   red: '#ef4444',
 };
 

@@ -23,6 +23,8 @@ function draw() {
   drawPieces();
   drawReadyButton('light');
   drawReadyButton('dark');
+  drawBudget(3, 5, 'dark');
+  drawBudget(4, 5, 'light');
   drawPieceSelectorMenu('light');
   drawPieceSelectorMenu('dark');
 
@@ -364,6 +366,7 @@ function drawPieceSelectorMenu(color: Color) {
   ctx.fill();
 
   const isRightEdge = menu.originFile === 7;
+  const budget = state.budget[color];
 
   // draw each piece icon
   for (const { piece, isMouseOver, x, y } of piecePositions) {
@@ -378,11 +381,21 @@ function drawPieceSelectorMenu(color: Color) {
       ctx.fill();
     }
 
+    // draw piece image
+    // (and at reduced opacity if overbudget)
+    ctx.save();
+    if (piece !== 'none') {
+      const piecePrice = pieceValues[piece];
+      const overBudget = budget - piecePrice < 0;
+      if (overBudget) ctx.globalAlpha = 0.5;
+    }
     ctx.drawImage(pieceImage, x, y, miniTileSize, miniTileSize);
+    ctx.restore();
 
     // draw the piece price to the right of the piece image
     if (piece !== 'none') {
       const piecePrice = pieceValues[piece];
+      const overBudget = budget - piecePrice < 0;
       const rectWidth = (miniTileSize * 3) / 4;
       const textX = isRightEdge ? x - rectWidth : x + miniTileSize;
       const textY = y + miniTileSize / 2;
@@ -397,7 +410,7 @@ function drawPieceSelectorMenu(color: Color) {
       ctx.fill();
 
       ctx.textBaseline = 'middle';
-      ctx.fillStyle = 'green';
+      ctx.fillStyle = overBudget ? colors.red : colors.darkGreen;
       ctx.textAlign = 'left';
       ctx.font = `${miniTileSize / 3}px sans-serif`;
       ctx.fillText(formatMoney(piecePrice), textLabelX, textY);
@@ -405,7 +418,6 @@ function drawPieceSelectorMenu(color: Color) {
   }
 
   // draw the remaining budget
-  const budget = state.budget[color];
   ctx.font = `${miniTileSize / 3}px sans-serif`;
   ctx.textAlign = 'center';
 
@@ -463,4 +475,32 @@ function drawReadyButton(color: Color) {
       canvas.style.cursor = 'pointer';
     }
   }
+}
+
+function drawBudget(rank: number, file: number, color: Color) {
+  if (state.status !== 'configuring') return;
+
+  const { tileSize } = getRect();
+  const x = file * tileSize - (tileSize * 6) / 11;
+  const y = rank * tileSize + tileSize / 20;
+  const budget = state.budget[color];
+
+  if (budget === 0) return;
+
+  if (budget > 0) {
+    ctx.fillStyle = colors.green;
+  } else {
+    ctx.fillStyle = colors.red;
+  }
+
+  ctx.beginPath();
+  ctx.roundRect(x, y, tileSize / 2, tileSize / 4, tileSize);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.fillStyle = 'black';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font = `500 ${tileSize / 7}px sans-serif`;
+  ctx.fillText(formatMoney(budget), x + tileSize / 4, y + tileSize / 8);
 }
