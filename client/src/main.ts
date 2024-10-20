@@ -9,13 +9,16 @@ const canvas = document.querySelector('canvas')!;
 const ctx = canvas.getContext('2d')!;
 
 function draw() {
+  // setup
   resizeCanvas();
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   canvas.style.cursor = 'default';
 
+  // events
   handleClicks();
   handleKeyPresses();
 
+  // rendering
   drawBoard();
   drawCircleInHoveredTile();
   drawLegalMoves();
@@ -28,6 +31,7 @@ function draw() {
   drawPieceSelectorMenu('light');
   drawPieceSelectorMenu('dark');
 
+  // loop infinitely
   requestAnimationFrame(draw);
 }
 

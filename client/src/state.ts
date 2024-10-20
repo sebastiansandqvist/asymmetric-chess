@@ -69,6 +69,5 @@ canvas.addEventListener('mousedown', (event) => {
 });
 
 document.addEventListener('keypress', (event) => {
-  console.log(event.key);
   state.keysPressed.add(event.key);
 });
