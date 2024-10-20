@@ -1,19 +1,12 @@
-import { pieceValues, tileColor } from './constants';
+import { legalMoves } from './chess';
+import { colors, oppositeColor, pieceValues, tileColor } from './constants';
 import { pieceSvg } from './pieces';
 import { state } from './state';
 import { Color, Piece } from './types';
+import { formatMoney } from './util';
 
 const canvas = document.querySelector('canvas')!;
 const ctx = canvas.getContext('2d')!;
-
-function formatMoney(n: number) {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(n);
-}
 
 function draw() {
   resizeCanvas();
@@ -24,6 +17,8 @@ function draw() {
 
   drawBoard();
   drawCircleInHoveredTile();
+  drawLegalMoves();
+  drawPieceHighlights();
   drawPieces();
   drawReadyButton('light');
   drawReadyButton('dark');
@@ -54,11 +49,10 @@ function refundPiece({ color, rank, file }: { color: Color; rank: number; file: 
   }
 }
 
-function handleClicks() {
+function handleConfigClicks() {
   const x = state.mouse.clickX;
   const y = state.mouse.clickY;
   if (x === -1 || y === -1) return;
-  if (state.status !== 'configuring') return;
 
   state.mouse.clickX = -1;
   state.mouse.clickY = -1;
@@ -110,6 +104,53 @@ function handleClicks() {
     state.pieceSelector.light.originRank = rank;
   }
 }
+function handlePlayClicks() {
+  const x = state.mouse.clickX;
+  const y = state.mouse.clickY;
+  if (x === -1 || y === -1) return;
+
+  state.mouse.clickX = -1;
+  state.mouse.clickY = -1;
+
+  const { tileSize } = getRect();
+  const rank = Math.floor(y / tileSize);
+  const file = Math.floor(x / tileSize);
+
+  if (!state.selectedPiece) {
+    const clickedPiece = state.board.find((x) => x.rank === rank && x.file === file && x.color === state.turn);
+    if (!clickedPiece) return;
+    state.selectedPiece = {
+      rank: clickedPiece.rank,
+      file: clickedPiece.file,
+    };
+  } else {
+    const { file: selectedFile, rank: selectedRank } = state.selectedPiece;
+    const selectedPiece = state.board.find((x) => x.file === selectedFile && x.rank === selectedRank);
+    if (!selectedPiece) return;
+    const moves = legalMoves(selectedPiece.piece, selectedRank, selectedFile);
+    const isLegalMove = moves.some((move) => move.rank === rank && move.file === file);
+    const isCapture =
+      isLegalMove && state.board.some((p) => p.rank === rank && p.file === file && p.color !== state.turn);
+    state.selectedPiece = null;
+
+    if (isCapture) {
+      const captureIdx = state.board.findIndex((p) => p.rank === rank && p.file === file && p.color !== state.turn);
+      if (captureIdx !== -1) {
+        state.board.splice(captureIdx, 1);
+      }
+    }
+    if (isLegalMove) {
+      selectedPiece.rank = rank;
+      selectedPiece.file = file;
+      state.turn = oppositeColor[state.turn];
+    }
+  }
+}
+
+function handleClicks() {
+  if (state.status === 'playing') handlePlayClicks();
+  if (state.status === 'configuring') handleConfigClicks();
+}
 
 function resizeCanvas() {
   canvas.width = window.innerWidth * devicePixelRatio;
@@ -146,7 +187,42 @@ function drawPieces() {
   }
 }
 
+function drawLegalMoves() {
+  if (state.status !== 'playing') return;
+  if (!state.selectedPiece) return;
+
+  const { file, rank } = state.selectedPiece;
+  const selectedPiece = state.board.find((x) => x.file === file && x.rank === rank);
+  if (!selectedPiece) return;
+  const moves = legalMoves(selectedPiece.piece, rank, file);
+
+  const { tileSize } = getRect();
+
+  for (const move of moves) {
+    const centerX = move.file * tileSize + tileSize / 2;
+    const centerY = move.rank * tileSize + tileSize / 2;
+    const radius = tileSize / 4;
+
+    const isMouseOver =
+      state.mouse.x >= move.file * tileSize &&
+      state.mouse.x < (move.file + 1) * tileSize &&
+      state.mouse.y >= move.rank * tileSize &&
+      state.mouse.y < (move.rank + 1) * tileSize;
+
+    if (isMouseOver) {
+      canvas.style.cursor = 'pointer';
+    }
+
+    ctx.fillStyle = state.turn === 'dark' ? 'rgba(0, 0, 0, 0.3)' : 'rgba(255, 255, 255, 0.6)';
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
 function drawCircleInHoveredTile() {
+  if (state.status !== 'configuring') return;
+
   // don't draw hover circles if a piece selector is open
   if (state.pieceSelector.dark.isOpen) return;
   if (state.pieceSelector.light.isOpen) return;
@@ -177,6 +253,21 @@ function drawCircleInHoveredTile() {
   ctx.fill();
 
   canvas.style.cursor = 'pointer';
+}
+
+function drawPieceHighlights() {
+  if (!state.selectedPiece) return;
+  const { tileSize } = getRect();
+  const { rank, file } = state.selectedPiece;
+
+  const x = file * tileSize;
+  const y = rank * tileSize;
+
+  ctx.lineWidth = 4;
+  ctx.strokeStyle = colors.green;
+  ctx.beginPath();
+  ctx.roundRect(x, y, tileSize, tileSize, 4); // add rounding with a radius of 10
+  ctx.stroke();
 }
 
 function getMenuRects(color: Color) {
@@ -274,20 +365,17 @@ function drawPieceSelectorMenu(color: Color) {
   ctx.fill();
 
   // draw text
-  const green = '#4ade80';
-  const gold = '#fcd34d';
-  const red = '#ef4444';
   ctx.textBaseline = 'alphabetic';
-  ctx.fillStyle = budget === 0 ? gold : budget < 0 ? red : green;
+  ctx.fillStyle = budget === 0 ? colors.gold : budget < 0 ? colors.red : colors.green;
   ctx.fillText(formatMoney(budget), x + miniTileSize / 2, y + height + (miniTileSize * 4) / 7);
 }
 
 function readyButtonRect(color: Color) {
-  const { tileSize, w } = getRect();
+  const { tileSize, min } = getRect();
   const rank = color === 'dark' ? 3 : 4;
   const width = (tileSize * 3) / 2;
   const height = (tileSize * 2) / 3;
-  const x = w / 2 - width / 2;
+  const x = min / 2 - width / 2;
   const y = rank * tileSize + height / 4;
   const isMouseOver =
     state.mouse.x >= x && state.mouse.x <= x + width && state.mouse.y >= y && state.mouse.y <= y + height;

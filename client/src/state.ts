@@ -2,6 +2,8 @@ import { Status, Color, Piece } from './types';
 
 export const state = {
   status: 'configuring' as Status,
+  turn: 'light' as Color,
+  selectedPiece: null as { rank: number; file: number } | null,
   ready: {
     dark: false,
     light: false,
