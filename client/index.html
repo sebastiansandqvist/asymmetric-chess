@@ -6,15 +6,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>asymmetric chess</title>
     <style>
+      html {
+        height: 100%;
+      }
       body {
+        background: black;
         margin: 0;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-items: center;
       }
       canvas {
         background: black;
-        /* aspect-ratio: 1 / 1; */
-        /* margin: auto; */
-        height: 100vh;
-        width: 100vw;
+        aspect-ratio: 1 / 1;
+        margin: auto;
+        height: min(100vh, 100vw);
       }
     </style>
   </head>

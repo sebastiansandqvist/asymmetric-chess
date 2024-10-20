@@ -21,6 +21,18 @@ export function legalMoves(piece: Piece, rank: number, file: number) {
         if (isValidMove(rank + direction, file) && !board.some((p) => p.rank === rank + direction && p.file === file)) {
           moves.push({ rank: rank + direction, file: file });
         }
+        // Initial double forward move
+        if (
+          (state.turn === 'light' && rank === 6 && !board.some((p) => p.rank === rank - 1 && p.file === file)) ||
+          (state.turn === 'dark' && rank === 1 && !board.some((p) => p.rank === rank + 1 && p.file === file))
+        ) {
+          if (
+            isValidMove(rank + 2 * direction, file) &&
+            !board.some((p) => p.rank === rank + 2 * direction && p.file === file)
+          ) {
+            moves.push({ rank: rank + 2 * direction, file: file });
+          }
+        }
         // Capture moves
         if (
           isValidMove(rank + direction, file - 1) &&

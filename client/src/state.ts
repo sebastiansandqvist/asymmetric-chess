@@ -1,6 +1,10 @@
 import { Status, Color, Piece } from './types';
 
+const canvas = document.querySelector('canvas')!;
+
 export const state = {
+  // cursor: { light: { x, y }, dark: { x, y } } // if we add gamepad input
+  keysPressed: new Set<string>(),
   status: 'configuring' as Status,
   turn: 'light' as Color,
   selectedPiece: null as { rank: number; file: number } | null,
@@ -51,12 +55,12 @@ document.addEventListener('mouseout', () => {
   state.mouse.y = -1;
 });
 
-window.addEventListener('mousemove', (event) => {
-  state.mouse.x = event.clientX;
-  state.mouse.y = event.clientY;
+canvas.addEventListener('mousemove', (event) => {
+  state.mouse.x = event.offsetX;
+  state.mouse.y = event.offsetY;
 });
 
-window.addEventListener('mousedown', (event) => {
-  state.mouse.clickX = event.clientX;
-  state.mouse.clickY = event.clientY;
+canvas.addEventListener('mousedown', (event) => {
+  state.mouse.clickX = event.offsetX;
+  state.mouse.clickY = event.offsetY;
 });

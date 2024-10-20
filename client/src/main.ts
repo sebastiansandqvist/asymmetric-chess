@@ -78,10 +78,17 @@ function handleConfigClicks() {
       return;
     }
 
+    if (state.pieceSelector.light.isOpen) continue;
+    if (state.pieceSelector.dark.isOpen) continue;
+
     // handle ready button
     const ready = readyButtonRect(color);
     if (ready.isMouseOver) {
-      state.ready[color] = true;
+      if (state.ready[color]) {
+        state.ready[color] = false;
+      } else if (state.budget[color] >= 0) {
+        state.ready[color] = true;
+      }
       if (state.ready.light && state.ready.dark) {
         state.status = 'playing';
       }
@@ -93,12 +100,12 @@ function handleConfigClicks() {
   const file = Math.floor(x / tileSize);
   const rank = Math.floor(y / tileSize);
 
-  if (rank < 3) {
+  if (rank < 3 && !state.ready.dark) {
     state.pieceSelector.dark.isOpen = true;
     state.pieceSelector.dark.originFile = file;
     state.pieceSelector.dark.originRank = rank;
   }
-  if (rank > 4) {
+  if (rank > 4 && !state.ready.light) {
     state.pieceSelector.light.isOpen = true;
     state.pieceSelector.light.originFile = file;
     state.pieceSelector.light.originRank = rank;
@@ -153,15 +160,17 @@ function handleClicks() {
 }
 
 function resizeCanvas() {
-  canvas.width = window.innerWidth * devicePixelRatio;
-  canvas.height = window.innerHeight * devicePixelRatio;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * devicePixelRatio;
+  canvas.height = rect.height * devicePixelRatio;
   ctx.resetTransform();
   ctx.scale(devicePixelRatio, devicePixelRatio);
 }
 
 function getRect() {
-  const w = window.innerWidth;
-  const h = window.innerHeight;
+  const rect = canvas.getBoundingClientRect();
+  const w = rect.width;
+  const h = rect.height;
   const min = Math.min(w, h);
   const tileSize = min / 8;
   return { w, h, min, tileSize };
@@ -230,7 +239,10 @@ function drawCircleInHoveredTile() {
   const { tileSize } = getRect();
 
   const radius = tileSize / 4;
-  const validRanks = [0, 1, 2, 5, 6, 7];
+
+  const validLightRanks = state.ready.light ? [] : [5, 6, 7];
+  const validDarkRanks = state.ready.dark ? [] : [0, 1, 2];
+  const validRanks = [...validDarkRanks, ...validLightRanks];
   const hoveredFile = Math.floor(state.mouse.x / tileSize);
   const hoveredRank = Math.floor(state.mouse.y / tileSize);
 
@@ -317,6 +329,8 @@ function drawPieceSelectorMenu(color: Color) {
   ctx.roundRect(x, y, width, height, 10);
   ctx.fill();
 
+  const isRightEdge = menu.originFile === 7;
+
   // draw each piece icon
   for (const { piece, isMouseOver, x, y } of piecePositions) {
     const pieceImage = pieceSvg[color][piece];
@@ -335,21 +349,24 @@ function drawPieceSelectorMenu(color: Color) {
     // draw the piece price to the right of the piece image
     if (piece !== 'none') {
       const piecePrice = pieceValues[piece];
-      const textX = x + miniTileSize;
-      const textY = y + miniTileSize / 2;
       const rectWidth = (miniTileSize * 3) / 4;
+      const textX = isRightEdge ? x - rectWidth : x + miniTileSize;
+      const textY = y + miniTileSize / 2;
+      const textLabelX = isRightEdge ? textX + (miniTileSize * 2) / 11 : textX + miniTileSize / 7;
 
       // draw background rectangle
+      const borderRadii = isRightEdge ? [5, 0, 0, 5] : [0, 5, 5, 0];
+      const labelX = isRightEdge ? textX + 1 : textX - 1;
       ctx.fillStyle = isMouseOver ? '#ddd' : 'white';
       ctx.beginPath();
-      ctx.roundRect(textX - 1, textY - miniTileSize / 4, rectWidth, miniTileSize / 2, [0, 5, 5, 0]);
+      ctx.roundRect(labelX, textY - miniTileSize / 4, rectWidth, miniTileSize / 2, borderRadii);
       ctx.fill();
 
       ctx.textBaseline = 'middle';
       ctx.fillStyle = 'green';
       ctx.textAlign = 'left';
       ctx.font = `${miniTileSize / 3}px sans-serif`;
-      ctx.fillText(formatMoney(piecePrice), textX + miniTileSize / 7, textY);
+      ctx.fillText(formatMoney(piecePrice), textLabelX, textY);
     }
   }
 
@@ -359,15 +376,16 @@ function drawPieceSelectorMenu(color: Color) {
   ctx.textAlign = 'center';
 
   // background rectangle
+  const budgetY = color === 'light' ? y - (miniTileSize * 3) / 4 : y + height + miniTileSize / 6;
   ctx.fillStyle = 'black';
   ctx.beginPath();
-  ctx.roundRect(x, y + height + miniTileSize / 6, width, (miniTileSize * 4) / 7, 10);
+  ctx.roundRect(x, budgetY, width, (miniTileSize * 4) / 7, 10);
   ctx.fill();
 
   // draw text
-  ctx.textBaseline = 'alphabetic';
+  ctx.textBaseline = 'top';
   ctx.fillStyle = budget === 0 ? colors.gold : budget < 0 ? colors.red : colors.green;
-  ctx.fillText(formatMoney(budget), x + miniTileSize / 2, y + height + (miniTileSize * 4) / 7);
+  ctx.fillText(formatMoney(budget), x + miniTileSize / 2, budgetY + miniTileSize / 8);
 }
 
 function readyButtonRect(color: Color) {
