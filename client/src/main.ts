@@ -14,6 +14,7 @@ function draw() {
   canvas.style.cursor = 'default';
 
   handleClicks();
+  handleKeyPresses();
 
   drawBoard();
   drawCircleInHoveredTile();
@@ -29,6 +30,39 @@ function draw() {
 }
 
 draw();
+
+function handleKeyPresses() {
+  if (state.status !== 'configuring') return;
+
+  // disable if a piece selector is open
+  if (state.pieceSelector.dark.isOpen) return;
+  if (state.pieceSelector.light.isOpen) return;
+
+  const { tileSize } = getRect();
+  const validLightRanks = state.ready.light ? [] : [5, 6, 7];
+  const validDarkRanks = state.ready.dark ? [] : [0, 1, 2];
+  const validRanks = [...validDarkRanks, ...validLightRanks];
+  const hoveredFile = Math.floor(state.mouse.x / tileSize);
+  const hoveredRank = Math.floor(state.mouse.y / tileSize);
+  const color = validLightRanks.includes(hoveredRank) ? 'light' : 'dark';
+
+  if (!validRanks.includes(hoveredRank)) return;
+
+  const piecesMap = [
+    ['p', 'pawn'],
+    ['q', 'queen'],
+    ['n', 'knight'],
+    ['r', 'rook'],
+    ['b', 'bishop'],
+  ] as const;
+
+  for (const [key, piece] of piecesMap) {
+    if (state.keysPressed.has(key)) {
+      placePiece({ piece, color, rank: hoveredRank, file: hoveredFile });
+      state.keysPressed.delete(key);
+    }
+  }
+}
 
 function placePiece({ piece, color, rank, file }: { piece: Piece; color: Color; rank: number; file: number }) {
   const existingPieceIndex = state.board.findIndex((x) => x.rank === rank && x.file === file);

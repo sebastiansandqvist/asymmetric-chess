@@ -61,6 +61,12 @@ canvas.addEventListener('mousemove', (event) => {
 });
 
 canvas.addEventListener('mousedown', (event) => {
+  if (event.button === 2) return; // ignore right click
   state.mouse.clickX = event.offsetX;
   state.mouse.clickY = event.offsetY;
+});
+
+document.addEventListener('keypress', (event) => {
+  console.log(event.key);
+  state.keysPressed.add(event.key);
 });
